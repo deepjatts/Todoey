@@ -12,10 +12,15 @@ class TodoTableViewController: UITableViewController {
 
     var tableArray = ["1","2","3"]
     
+    let defaults = UserDefaults.standard
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view, typically from a nib.
+        
+        if let items = defaults.array(forKey: "ToDoListArray") as? [String] {
+            tableArray = items
+        }
+        
     }
     
     
@@ -55,6 +60,8 @@ class TodoTableViewController: UITableViewController {
             
             print("Item added succesfully")
             self.tableArray.append(newItem.text!)
+            
+            self.defaults.set(self.tableArray, forKey: "ToDoListArray")
             self.tableView.reloadData()
         }
         
