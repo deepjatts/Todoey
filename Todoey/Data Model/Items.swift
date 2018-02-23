@@ -8,7 +8,7 @@
 
 import UIKit
 
-class Items {
+class Items: Codable {
     var itemName : String?
     var checked : Bool = false
     
