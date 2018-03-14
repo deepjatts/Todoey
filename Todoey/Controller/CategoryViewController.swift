@@ -7,17 +7,22 @@
 //
 
 import UIKit
-import CoreData
+import SwipeCellKit
+import RealmSwift
+import ChameleonFramework
 
-class CategoryViewController: UITableViewController {
 
-    var tableArray = [Category]()
-    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
+class CategoryViewController: SwipeTableViewController{
     
+    var realm = try! Realm()
+    
+    var tableArray: Results<Category>?
     
     override func viewDidLoad() {
         super.viewDidLoad()
         loadItems()
+        tableView.separatorStyle = .none
+        tableView.rowHeight = 75.0
     }
     
     // MARK: - ADD BUTTON
@@ -28,13 +33,12 @@ class CategoryViewController: UITableViewController {
         
         let action = UIAlertAction(title: "ADD", style: .default) { (alert) in
             
-            let newCategory = Category(context: self.context)
+            let newCategory = Category()
             
             newCategory.name = textfield.text!
-           
+            newCategory.color = UIColor.randomFlat.hexValue()
             
-            self.tableArray.append(newCategory)
-            self.saveItems()
+            self.saveItems(category : newCategory)
         }
         
         alert.addTextField { (alertTextField) in
@@ -49,16 +53,21 @@ class CategoryViewController: UITableViewController {
     
     //MARK: - Table view data source methods
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return tableArray.count
+        return tableArray?.count ?? 1
     }
     
     
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
-        let cell = tableView.dequeueReusableCell(withIdentifier: "categoryCell", for: indexPath)
+        let cell = super.tableView(tableView, cellForRowAt: indexPath)
         
-        cell.textLabel?.text = tableArray[indexPath.row].name
+        if let category = tableArray?[indexPath.row]{
+            cell.textLabel?.text = category.name ?? "no categories added yet"
+            guard let categoryColor = UIColor(hexString: category.color) else {fatalError()}
+            cell.backgroundColor = categoryColor
+            cell.textLabel?.textColor = ContrastColorOf(categoryColor, returnFlat: true)
+        }
         
         return cell
     }
@@ -66,7 +75,7 @@ class CategoryViewController: UITableViewController {
     
     //MARK: - Tableview Delegate Methods
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-       
+        
         performSegue(withIdentifier: "goToItems", sender: self)
     }
     
@@ -74,7 +83,7 @@ class CategoryViewController: UITableViewController {
         let destinationVC = segue.destination as! TodoTableViewController
         
         if let indexPath = tableView.indexPathForSelectedRow{
-            destinationVC.selectedCategory = tableArray[indexPath.row]
+            destinationVC.selectedCategory = tableArray?[indexPath.row] 
         }
     }
     
@@ -82,10 +91,12 @@ class CategoryViewController: UITableViewController {
     //MARK: - Data Manupulation methods
     
     
-    func saveItems (){
+    func saveItems (category : Category){
         
         do{
-            try context.save()
+            try realm.write {
+                realm.add(category)
+            }
         }catch{
             print("Error saving \(error)")
         }
@@ -94,13 +105,25 @@ class CategoryViewController: UITableViewController {
     
     
     
-    func loadItems(with request : NSFetchRequest<Category>  = Category.fetchRequest() ){
+    func loadItems(){
         
-        do{
-            tableArray = try context.fetch(request)
-        }catch{
-            print("Error fetching \(error)")
+        tableArray = realm.objects(Category.self)
+        
+        tableView.reloadData()
+    }
+    
+    override func updateModel(at indexPath: IndexPath) {
+        if let categoryForDeletion = tableArray?[indexPath.row]{
+            do{
+                try self.realm.write {
+                    self.realm.delete(categoryForDeletion)
+                }
+            }catch{
+                print("Error deleting \(error)")
+            }
         }
     }
 }
+
+
 
